@@ -528,8 +528,8 @@ export default function Header() {
         >
           {[
             { label: 'Languages', value: '6+', icon: 'λ' },
-            { label: 'Projects', value: '25+', icon: '◆' },
-            { label: 'LOC', value: '435k+', icon: '▸' },
+            { label: 'Projects', value: '99+', icon: '◆' },
+            // { label: 'LOC', value: '435k+', icon: '▸' },
             { label: 'Years', value: '5+', icon: '◉' },
           ].map((stat, index) => (
             <StatCard key={stat.label} {...stat} index={index} />
