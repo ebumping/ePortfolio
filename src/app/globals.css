@@ -1,0 +1,246 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&display=swap');
+
+:root {
+  --terminal-amber: #ffb000;
+  --terminal-gold: #ffc107;
+  --terminal-honey: #f5a623;
+  --terminal-orange: #ff6b35;
+  --terminal-cream: #ffd866;
+  --terminal-bg: #0a0908;
+  --scanline-opacity: 0.02;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+  background-color: var(--terminal-bg);
+  color: #f5e6d3;
+  min-height: 100vh;
+  position: relative;
+  overflow-x: hidden;
+}
+
+/* CRT Scanline Effect */
+body::before {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  background: repeating-linear-gradient(
+    0deg,
+    rgba(20, 15, 5, 0.2),
+    rgba(20, 15, 5, 0.2) 1px,
+    transparent 1px,
+    transparent 2px
+  );
+  z-index: 1000;
+  opacity: var(--scanline-opacity);
+}
+
+/* Terminal glow effect */
+.terminal-glow {
+  text-shadow: 0 0 5px currentColor, 0 0 10px currentColor;
+}
+
+.terminal-glow-subtle {
+  text-shadow: 0 0 3px currentColor;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #131210;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #3d3528;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #5c4f3a;
+}
+
+/* Selection styling */
+::selection {
+  background: rgba(255, 176, 0, 0.3);
+  color: #ffb000;
+}
+
+/* Blinking cursor */
+.cursor {
+  display: inline-block;
+  width: 10px;
+  height: 1.2em;
+  background-color: var(--terminal-amber);
+  animation: blink 1s step-end infinite;
+  vertical-align: text-bottom;
+  margin-left: 2px;
+}
+
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+/* ASCII art styling */
+.ascii-art {
+  font-size: 0.6rem;
+  line-height: 1;
+  white-space: pre;
+  color: var(--terminal-amber);
+  opacity: 0.7;
+}
+
+/* Glitch effect */
+@keyframes glitch {
+  0% {
+    clip-path: inset(40% 0 61% 0);
+    transform: translate(-2px, 2px);
+  }
+  20% {
+    clip-path: inset(92% 0 1% 0);
+    transform: translate(2px, -2px);
+  }
+  40% {
+    clip-path: inset(43% 0 1% 0);
+    transform: translate(-2px, 2px);
+  }
+  60% {
+    clip-path: inset(25% 0 58% 0);
+    transform: translate(2px, 2px);
+  }
+  80% {
+    clip-path: inset(54% 0 7% 0);
+    transform: translate(-2px, -2px);
+  }
+  100% {
+    clip-path: inset(58% 0 43% 0);
+    transform: translate(2px, -2px);
+  }
+}
+
+.glitch {
+  position: relative;
+}
+
+.glitch::before,
+.glitch::after {
+  content: attr(data-text);
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.glitch::before {
+  animation: glitch 2s infinite linear alternate-reverse;
+  color: var(--terminal-gold);
+  z-index: -1;
+}
+
+.glitch::after {
+  animation: glitch 3s infinite linear alternate-reverse;
+  color: var(--terminal-orange);
+  z-index: -2;
+}
+
+/* Tag/badge styling */
+.tech-tag {
+  @apply inline-flex items-center px-2 py-0.5 text-xs font-medium rounded border;
+  @apply bg-terminal-surface border-terminal-border text-terminal-dim;
+  @apply transition-all duration-200;
+}
+
+.tech-tag:hover {
+  @apply border-terminal-amber text-terminal-amber;
+}
+
+/* Card hover effects */
+.project-card {
+  @apply relative overflow-hidden;
+  transition: all 0.3s ease;
+}
+
+.project-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 176, 0, 0.05),
+    transparent
+  );
+  transition: left 0.5s ease;
+}
+
+.project-card:hover::before {
+  left: 100%;
+}
+
+.project-card:hover {
+  @apply border-terminal-amber;
+  box-shadow: 0 0 20px rgba(255, 176, 0, 0.15);
+}
+
+/* Typing animation */
+.typing-animation {
+  overflow: hidden;
+  white-space: nowrap;
+  border-right: 2px solid var(--terminal-amber);
+  animation:
+    typing 2s steps(30, end),
+    blink-caret 0.75s step-end infinite;
+}
+
+@keyframes typing {
+  from { width: 0 }
+  to { width: 100% }
+}
+
+@keyframes blink-caret {
+  from, to { border-color: transparent }
+  50% { border-color: var(--terminal-amber) }
+}
+
+/* Matrix rain background (optional, can be toggled) */
+.matrix-bg {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: -1;
+  opacity: 0.03;
+}
+
+/* Responsive text */
+@layer utilities {
+  .text-responsive {
+    font-size: clamp(0.875rem, 2vw, 1rem);
+  }
+}
