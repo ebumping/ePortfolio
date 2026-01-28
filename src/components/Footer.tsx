@@ -220,7 +220,7 @@ function ConnectionStatus() {
   }, []);
 
   return (
-    <div className="flex items-center gap-4 text-[10px] font-mono">
+    <div className="flex items-center gap-2 md:gap-4 text-[10px] font-mono">
       <div className="flex items-center gap-1">
         <motion.div
           className="w-1.5 h-1.5 rounded-full bg-terminal-amber"
@@ -236,12 +236,12 @@ function ConnectionStatus() {
         />
         <span className="text-terminal-dim">CONNECTED</span>
       </div>
-      <span className="text-terminal-border">|</span>
-      <span className="text-terminal-dim">
+      <span className="text-terminal-border hidden md:inline">|</span>
+      <span className="text-terminal-dim hidden md:inline">
         RTT: <span className="text-terminal-gold">{status.latency}ms</span>
       </span>
-      <span className="text-terminal-border">|</span>
-      <span className="text-terminal-dim">
+      <span className="text-terminal-border hidden md:inline">|</span>
+      <span className="text-terminal-dim hidden md:inline">
         PKT: <span className="text-terminal-amber">{status.packets.toLocaleString()}</span>
       </span>
     </div>
@@ -329,7 +329,7 @@ export default function Footer() {
       <div className="max-w-6xl mx-auto relative z-10">
         {/* Terminal session header */}
         <motion.div
-          className="flex items-center justify-between mb-6 pb-4 border-b border-terminal-border/50"
+          className="flex flex-col md:flex-row items-start md:items-center justify-between gap-3 mb-6 pb-4 border-b border-terminal-border/50"
           variants={itemVariants}
         >
           <div className="flex items-center gap-3">
@@ -433,17 +433,19 @@ export default function Footer() {
           variants={itemVariants}
         >
           <motion.div
-            className="flex items-center gap-2 text-sm text-terminal-dim"
+            className="flex items-start gap-2 text-xs md:text-sm text-terminal-dim"
             whileHover={{ color: '#00ff00' }}
           >
             <motion.span
-              className="text-terminal-amber"
+              className="text-terminal-amber shrink-0"
               animate={{ opacity: [1, 0.5, 1] }}
               transition={{ duration: 2, repeat: Infinity }}
             >
               $
             </motion.span>
-            <GlitchText text='echo "Built with Next.js + Tailwind + Motion"' isActive={glitchActive} />
+            <span className="break-all md:break-normal">
+              <GlitchText text='echo "Built with Next.js + Tailwind + Motion"' isActive={glitchActive} />
+            </span>
           </motion.div>
 
           <div className="flex items-center gap-4 text-terminal-dim text-sm">
@@ -495,11 +497,11 @@ export default function Footer() {
 
         {/* Large ASCII art easter egg */}
         <motion.div
-          className="mt-8 text-center overflow-hidden"
+          className="mt-8 text-center overflow-hidden hidden md:block"
           variants={itemVariants}
         >
           <motion.pre
-            className="text-[6px] md:text-[8px] text-terminal-amber/15 select-none leading-none inline-block"
+            className="text-[8px] text-terminal-amber/15 select-none leading-none inline-block"
             animate={{
               opacity: [0.15, 0.25, 0.15],
               textShadow: [
