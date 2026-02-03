@@ -397,7 +397,11 @@ export default function Footer() {
             variants={itemVariants}
           >
             <motion.div
-              className="text-terminal-amber/30 text-[10px] font-mono leading-tight cursor-pointer"
+              className="text-terminal-amber/30 text-[10px] cursor-pointer"
+              style={{
+                fontFamily: '"JetBrains Mono", "Fira Code", monospace',
+                lineHeight: '1.2',
+              }}
               onClick={() => setShowEasterEgg(!showEasterEgg)}
               whileHover={{ scale: 1.02 }}
               animate={glitchActive ? {
@@ -406,15 +410,15 @@ export default function Footer() {
               } : {}}
               transition={{ duration: 0.1 }}
             >
-              <pre className="select-none">
-{`    ╔═══════════════════╗
-    ║  LAYER 07: WIRED  ║
-    ║    ┌─────────┐    ║
-    ║    │ ◉ ◉ ◉   │    ║
-    ║    │  ═══    │    ║
-    ║    │ ▓▓▓▓▓▓▓ │    ║
-    ║    └─────────┘    ║
-    ╚═══════════════════╝`}
+              <pre className="select-none" style={{ lineHeight: '1.2' }}>
+{`+---------------------+
+|   LAYER 07: WIRED   |
+|   +-------------+   |
+|   |  o  o  o    |   |
+|   |    ===      |   |
+|   |  #########  |   |
+|   +-------------+   |
++---------------------+`}
               </pre>
             </motion.div>
             <AnimatePresence>
