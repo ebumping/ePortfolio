@@ -391,17 +391,13 @@ export default function Footer() {
             ))}
           </motion.div>
 
-          {/* Center: ASCII Art with animation */}
+          {/* Center: Navi diagram with SVG for consistent rendering */}
           <motion.div
             className="flex flex-col items-center justify-center"
             variants={itemVariants}
           >
             <motion.div
-              className="text-terminal-amber/30 text-[10px] cursor-pointer"
-              style={{
-                fontFamily: '"JetBrains Mono", "Fira Code", monospace',
-                lineHeight: '1.2',
-              }}
+              className="cursor-pointer"
               onClick={() => setShowEasterEgg(!showEasterEgg)}
               whileHover={{ scale: 1.02 }}
               animate={glitchActive ? {
@@ -410,16 +406,36 @@ export default function Footer() {
               } : {}}
               transition={{ duration: 0.1 }}
             >
-              <pre className="select-none" style={{ lineHeight: '1.2' }}>
-{`+---------------------+
-|   LAYER 07: WIRED   |
-|   +-------------+   |
-|   |  o  o  o    |   |
-|   |    ===      |   |
-|   |  #########  |   |
-|   +-------------+   |
-+---------------------+`}
-              </pre>
+              <svg
+                width="180"
+                height="140"
+                viewBox="0 0 180 140"
+                className="text-terminal-amber/30"
+                style={{ shapeRendering: 'crispEdges' }}
+              >
+                {/* Outer box */}
+                <rect x="1" y="1" width="178" height="138" fill="none" stroke="currentColor" strokeWidth="2" />
+
+                {/* Title text */}
+                <text x="90" y="24" textAnchor="middle" fill="currentColor" fontSize="12" fontFamily="monospace">
+                  LAYER 07: WIRED
+                </text>
+
+                {/* Inner box (Navi screen) */}
+                <rect x="30" y="36" width="120" height="90" fill="none" stroke="currentColor" strokeWidth="2" />
+
+                {/* Three circles (lights) */}
+                <circle cx="55" cy="58" r="8" fill="none" stroke="currentColor" strokeWidth="2" />
+                <circle cx="90" cy="58" r="8" fill="none" stroke="currentColor" strokeWidth="2" />
+                <circle cx="125" cy="58" r="8" fill="none" stroke="currentColor" strokeWidth="2" />
+
+                {/* Mouth line */}
+                <line x1="60" y1="80" x2="120" y2="80" stroke="currentColor" strokeWidth="2" />
+
+                {/* Screen/display area */}
+                <rect x="45" y="94" width="90" height="20" fill="currentColor" opacity="0.3" />
+                <rect x="45" y="94" width="90" height="20" fill="none" stroke="currentColor" strokeWidth="2" />
+              </svg>
             </motion.div>
             <AnimatePresence>
               {showEasterEgg && (
