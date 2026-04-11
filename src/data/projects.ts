@@ -519,8 +519,8 @@ const resolveAnimatedParams = (effect: Effect, frameIndex: number, totalFrames: 
     },
   },
   {
-    id: 'nexus',
-    name: 'Nexus',
+    id: 'spawning_pool',
+    name: 'Spawning Pool',
     tagline: 'Enterprise Identity Management Platform',
     description: 'Distributed identity orchestration system with multi-platform automation, real-time analytics, and AI-driven campaign optimization.',
     longDescription: 'A sophisticated identity management and campaign orchestration platform handling multi-platform automation, real-time analytics, and intelligent campaign optimization. Features modular architecture with PyQt6 UI, advanced security controls, and predictive analytics engine.',
