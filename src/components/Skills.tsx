@@ -10,7 +10,7 @@ const skillCategories = [
   { key: 'databases', label: 'Databases', icon: '▣' },
   { key: 'security', label: 'Security', icon: '◆' },
   { key: 'blockchain', label: 'Blockchain', icon: '⬡' },
-  { key: 'automation', label: 'Automation', icon: '⚡' },
+  { key: 'devops', label: 'DevOps & Tooling', icon: '⚡' },
 ] as const;
 
 export default function Skills() {

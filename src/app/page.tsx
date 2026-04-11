@@ -96,18 +96,20 @@ export default function Home() {
 
           <div className="max-w-3xl">
             <p className="text-terminal-dim leading-relaxed mb-4">
-              <span className="text-terminal-amber">{'>'}</span> Building distributed systems,
-              ML pipelines, and security tools. Focused on high-performance Rust systems,
-              multi-LLM orchestration, and production-grade infrastructure.
+              <span className="text-terminal-amber">{'>'}</span> Building autonomous agent orchestration
+              frameworks, covert communication tooling, and real-time computer vision pipelines.
+              Constraining non-deterministic AI systems within deterministic execution frameworks.
             </p>
             <p className="text-terminal-dim leading-relaxed mb-4">
-              <span className="text-terminal-amber">{'>'}</span> Experience spans enterprise
-              platforms with 90+ crate architectures, research-grade reverse engineering tools,
-              full-stack web applications, and quantitative trading systems with ML/RL integration.
+              <span className="text-terminal-amber">{'>'}</span> Experience spans a 113-crate Rust
+              monorepo with multi-server agent hierarchies, multi-protocol C2 with covert channel
+              failover, research-grade reverse engineering, and production healthcare payment systems
+              processing millions of data points in HIPAA-compliant environments.
             </p>
             <p className="text-terminal-dim leading-relaxed">
-              <span className="text-terminal-amber">{'>'}</span> Currently working on multi-provider
-              LLM orchestration, cloud GPU ML pipelines, and autonomous trading systems.
+              <span className="text-terminal-amber">{'>'}</span> Currently building plan-driven
+              agent orchestration with eBPF monitoring, cognitive influence frameworks, and
+              steganographic tooling for PDF/PNG/WAV/MP4 carriers with AES-256-GCM encryption.
             </p>
           </div>
 
