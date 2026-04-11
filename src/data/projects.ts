@@ -38,48 +38,53 @@ export const projects: Project[] = [
     status: 'active',
     codeHighlight: {
       language: 'rust',
-      filename: 'zerg_core/src/tool.rs',
-      code: `/// The core Tool trait - implement this to create new agent capabilities
-#[async_trait]
-pub trait Tool: Send + Sync {
-    fn name(&self) -> &str;
-    fn description(&self) -> &str;
-    fn input_schema(&self) -> Value;
-    async fn execute(&self, input: Value, ctx: &ToolContext) -> ToolResult;
+      filename: 'zerg_core/src/state.rs',
+      code: `/// Phases of the Ralph Loop — deterministic state machine
+/// constraining non-deterministic LLM agents
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum DronePhase {
+    Idle,              // Waiting for input
+    Planning,          // Gestalt — generate steps from context
+    Executing,         // Evolve — run tools
+    AwaitingToolResult,// Feed result back to LLM
+    Checkpointing,     // Metamorphosis — snapshot + re-anchor
+    Completed,         // Terminal success
+    Failed,            // Terminal failure / needs re-anchor
+}
 
-    fn definition(&self) -> ToolDefinition {
-        ToolDefinition {
-            name: self.name().to_string(),
-            description: self.description().to_string(),
-            input_schema: self.input_schema(),
-            cache_control: None,
-        }
+fn transition(&mut self, to: DronePhase) {
+    let from = self.state.phase;
+    if from != to {
+        self.state.phase = to;
+        self.emit(DroneEvent::PhaseChanged { from, to });
     }
 }
 
-/// Registry of available tools for agent execution
-#[derive(Default)]
-pub struct ToolRegistry {
-    tools: HashMap<String, Arc<dyn Tool>>,
+pub async fn execute_tool(
+    &mut self, tool_use_id: &str, tool_name: &str, input: Value,
+) -> Result<ToolOutput, ToolError> {
+    self.transition(DronePhase::Executing);
+    let start = std::time::Instant::now();
+    let result = self.tools.execute(tool_name, input, &self.tool_ctx).await;
+
+    self.state.current_step += 1;
+    self.transition(DronePhase::AwaitingToolResult);
+
+    // Deterministic context bound — checkpoint when token limit reached
+    if self.state.needs_reanchor(self.context_limit) {
+        self.create_checkpoint("context_limit_reached");
+    }
+    result
 }
 
-impl ToolRegistry {
-    pub fn register(&mut self, tool: impl Tool + 'static) {
-        self.tools.insert(tool.name().to_string(), Arc::new(tool));
-    }
-
-    pub fn definitions(&self) -> Vec<ToolDefinition> {
-        self.tools.values().map(|t| t.definition()).collect()
-    }
-
-    pub async fn execute(&self, name: &str, input: Value, ctx: &ToolContext) -> ToolResult {
-        let tool = self.get(name).ok_or_else(|| ToolError {
-            code: "TOOL_NOT_FOUND".into(),
-            message: format!("Tool '{}' not found in registry", name),
-            recoverable: false,
-        })?;
-        tool.execute(input, ctx).await
-    }
+fn create_checkpoint(&mut self, reason: &str) {
+    self.transition(DronePhase::Checkpointing);
+    let checkpoint = self.state.checkpoint(); // SHA-256 content-addressed
+    self.state.checkpoints.push(checkpoint.state_hash.clone());
+    self.emit(DroneEvent::ReanchorTriggered {
+        reason: reason.to_string(),
+        checkpoint_hash: checkpoint.state_hash,
+    });
 }`,
     },
   },
@@ -163,35 +168,46 @@ impl ToolRegistry {
     status: 'active',
     codeHighlight: {
       language: 'rust',
-      filename: 'steg/sigil/src/lib.rs',
-      code: `impl Steganographer for SigilSteganographer {
-    fn embed(&self, cover: &[u8], payload: &[u8]) -> Result<Vec<u8>, StegError> {
-        let carrier = std::str::from_utf8(cover)
-            .map_err(|_| StegError::InvalidFormat(
-                "Carrier must be valid UTF-8".to_string()
-            ))?
-            .chars().next().unwrap_or('\u{1F300}');
+      filename: 'listener/src/multi_protocol.rs',
+      code: `/// Trait for covert channel protocol implementations
+#[async_trait]
+pub trait Protocol: Send + Sync {
+    async fn execute(&self, cmd: &RemoteCommand) -> Result<CommandResponse>;
+    fn name(&self) -> &'static str;
+    async fn health_check(&self) -> bool;
+    fn priority(&self) -> u8; // lower = higher priority
+}
 
-        let mut encoded = String::new();
-        for &byte in payload {
-            for i in 0..8 {
-                if (byte >> i) & 1 == 1 {
-                    encoded.push(ZERO_WIDTH_JOINER);
-                } else {
-                    encoded.push(ZERO_WIDTH_NON_JOINER);
-                }
-            }
+/// Multi-protocol C2 with automatic failover
+pub struct MultiProtocolC2 {
+    protocols: Vec<Arc<dyn Protocol>>,  // DNS, ICMP, HTTP/2, timing
+    current_index: Arc<RwLock<usize>>,
+    retry_timeout: Duration,
+}
+
+/// Execute command with priority-ordered protocol failover
+pub async fn execute_with_failover(&self, cmd: &RemoteCommand) -> Result<CommandResponse> {
+    let start_index = *self.current_index.read().await;
+    let mut attempts = 0;
+
+    loop {
+        let current = *self.current_index.read().await;
+        let protocol = &self.protocols[current];
+
+        match timeout(self.retry_timeout, protocol.execute(cmd)).await {
+            Ok(Ok(response)) => return Ok(response),
+            Ok(Err(e)) => warn!("Protocol {} failed: {}", protocol.name(), e),
+            Err(_) => warn!("Protocol {} timed out", protocol.name()),
         }
 
-        let mut result = String::new();
-        result.push(carrier);
-        result.push(ZERO_WIDTH_SPACE);
-        result.push(ZERO_WIDTH_NON_JOINER);
-        result.push_str(&encoded);
-        result.push(ZERO_WIDTH_JOINER);
-        result.push(ZERO_WIDTH_SPACE);
+        // Failover to next protocol in priority order
+        let mut index = self.current_index.write().await;
+        *index = (*index + 1) % self.protocols.len();
+        attempts += 1;
 
-        Ok(result.into_bytes())
+        if *index == start_index || attempts >= self.max_retries * self.protocols.len() {
+            return Err(anyhow!("All {} protocols exhausted", self.protocols.len()));
+        }
     }
 }`,
     },
@@ -297,58 +313,58 @@ impl ToolRegistry {
     },
   },
   {
-    id: 'synthesis',
-    name: 'Synthesis',
-    tagline: 'Cloud GPU Image & Video Generation Pipeline',
-    description: 'Production-grade multi-model diffusion pipeline for context-aware image editing and video generation with cloud GPU deployment.',
-    tech: ['Python', 'PyTorch', 'Diffusers', 'FLUX', 'SDXL', 'WAN', 'Gradio', 'CUDA'],
+    id: 'neural-pipeline',
+    name: 'Real-Time Neural Pipeline',
+    tagline: 'Multi-Model CV at 25-35 FPS on Constrained Hardware',
+    description: 'Real-time computer vision pipeline running 5 simultaneous neural networks at 25-35 FPS on an RTX 3070 (8GB VRAM) with precision-aware FP16/FP32 model splitting, TensorRT acceleration, and async threaded inference.',
+    tech: ['Python', 'ONNX Runtime', 'TensorRT', 'CUDA', 'SCRFD', 'ArcFace', 'GFPGAN', 'BiSeNet'],
     category: 'ml-ai',
     highlights: [
-      '6 inference engines (FLUX, SDXL, SD1.5, WAN)',
-      'ACE+ context-aware editing with LoRAs',
-      'Image-to-Video and Text-to-Video generation',
-      'LoRA training infrastructure',
-      'Vast.ai cloud deployment automation',
-      'Memory optimization for 8GB-48GB VRAM',
+      '5 neural networks at 25-35 FPS on 8GB VRAM',
+      'Precision-aware FP16/FP32 model splitting',
+      'TensorRT engine caching and acceleration',
+      'Async threaded detection with GPU overlap',
+      'Adaptive resolution scaling via rolling FPS',
+      'Motion-predictive temporal stabilization',
     ],
-    scale: '17,500+ LOC',
+    scale: '4,500+ LOC',
     status: 'active',
     codeHighlight: {
       language: 'python',
-      filename: 'wan_inference.py',
-      code: `def _generate_dual_model_i2v(
-    self, image: Image.Image, prompt: str,
-    generator: torch.Generator, gen_kwargs: dict,
-):
-    """
-    Generate video using dual-model (H/L) Lightning workflow.
-    First N steps use the H (High) model, then L (Low) for refinement.
-    """
-    if not self.i2v_pipeline_high or not self.i2v_pipeline_low:
-        raise RuntimeError("Dual-model pipelines not loaded")
+      filename: 'stream_swap.py',
+      code: `def get_providers(use_trt=False, fp16=True):
+    """Build ONNX Runtime execution provider list with optional TensorRT."""
+    available = set(ort.get_available_providers())
+    providers = []
+    if use_trt and 'TensorrtExecutionProvider' in available:
+        providers.append(('TensorrtExecutionProvider', {
+            'device_id': 0,
+            'trt_fp16_enable': fp16,
+            'trt_engine_cache_enable': True,
+            'trt_engine_cache_path': '/tmp/trt_cache',
+        }))
+    if 'CUDAExecutionProvider' in available:
+        providers.append(('CUDAExecutionProvider', {'device_id': 0}))
+    providers.append('CPUExecutionProvider')
+    return providers
 
-    config = self.model_config
-    h_steps, l_steps = config.dual_model_steps
+class FaceSwapStream:
+    def __init__(self, identity_path, inswapper_path, source=0,
+                 gfpgan_path=None, bisenet_path=None, use_trt=False):
+        # Precision-aware model splitting: swap + restoration run FP32
+        # to preserve identity embedding geometry; face parser runs FP16
+        # — segmentation masks tolerate reduced precision
+        fp32_providers = get_providers(use_trt, fp16=False)
+        fp16_providers = get_providers(use_trt, fp16=True)
 
-    print(f"Running dual-model: {h_steps} steps H, {l_steps} steps L")
+        identity = np.load(identity_path)
+        self.identity_normed = identity.flatten().astype(np.float32)
+        self.identity_normed /= max(np.linalg.norm(self.identity_normed), 1e-6)
 
-    # Phase 1: Run H model for initial generation
-    gen_kwargs_h = gen_kwargs.copy()
-    gen_kwargs_h['num_inference_steps'] = h_steps
-    gen_kwargs_h['output_type'] = 'latent'  # Get latents for continuation
-
-    with torch.inference_mode():
-        result_h = self.i2v_pipeline_high(**gen_kwargs_h)
-
-    # Phase 2: Run L model for refinement from latents
-    gen_kwargs_l = gen_kwargs.copy()
-    gen_kwargs_l['num_inference_steps'] = l_steps
-    gen_kwargs_l['latents'] = result_h.frames
-
-    with torch.inference_mode():
-        result_l = self.i2v_pipeline_low(**gen_kwargs_l)
-
-    return result_l`,
+        self.analyzer = FaceAnalyzer(det_size=(640, 640))  # SCRFD detector
+        self.swapper  = InSwapper(inswapper_path, identity, fp32_providers)
+        self.restorer = FaceRestorer(gfpgan_path, fp32_providers)   # FP32
+        self.parser   = FaceParser(bisenet_path, fp16_providers)    # FP16 ok`,
     },
   },
   {
@@ -370,42 +386,49 @@ impl ToolRegistry {
     status: 'maintained',
     codeHighlight: {
       language: 'typescript',
-      filename: 'turbogif/imageProcessingService.ts',
-      code: `const ease = (t: number, type: AnimatorConfig['easing']): number => {
-    switch (type) {
-        case 'easeIn': return t * t;
-        case 'easeOut': return t * (2 - t);
-        case 'easeInOut': return t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
-        default: return t;
+      filename: 'lib/moderation.ts',
+      code: `export type RestrictionAction =
+  | 'hard_ban' | 'shadow_ban' | 'timeout'
+  | 'cooldown' | 'post_only_ban' | 'image_upload_ban';
+
+export type RestrictionSubject = 'ip' | 'cidr' | 'device';
+
+export async function findActiveRestriction(identity: ClientIdentity) {
+  const nowIso = new Date().toISOString();
+  const list = await db.select().from(restrictions);
+
+  for (const r of list) {
+    if (r.startsAt && r.startsAt > nowIso) continue;
+    if (r.expiresAt && r.expiresAt <= nowIso) continue;
+    if (r.revokedAt) continue;
+
+    if (r.subjectType === 'ip' && identity.ip !== 'unknown') {
+      if (r.subjectValue === identity.ip) return r;
     }
-};
-
-const NOISE_TABLE = Array.from({length: 256}, () => Math.random());
-const valueNoise1D = (x: number): number => {
-    const x_floor = Math.floor(x);
-    const t_smooth = (x - x_floor) ** 2 * (3 - 2 * (x - x_floor));
-    return NOISE_TABLE[x_floor & 255] * (1 - t_smooth) + NOISE_TABLE[(x_floor + 1) & 255] * t_smooth;
-};
-
-const resolveAnimatedParams = (effect: Effect, frameIndex: number, totalFrames: number) => {
-    const resolved = { ...effect.params };
-    if (!effect.animators) return resolved;
-
-    for (const paramId in effect.animators) {
-        const { type, min, max, speed = 1, phase = 0 } = effect.animators[paramId];
-        const progress = totalFrames > 1 ? frameIndex / (totalFrames - 1) : 0;
-
-        let unit: number;
-        switch (type) {
-            case 'noise': unit = valueNoise1D((progress * speed + phase) * 5); break;
-            case 'sine': unit = (Math.sin((progress * speed + phase) * 2 * Math.PI) + 1) / 2; break;
-            case 'triangle': unit = 1 - Math.abs(((progress * speed + phase) % 1) * 2 - 1); break;
-            default: unit = progress;
-        }
-        resolved[paramId] = min + unit * (max - min);
+    if (r.subjectType === 'device' && identity.deviceId) {
+      if (r.subjectValue === identity.deviceId) return r;
     }
-    return resolved;
-};`,
+    if (r.subjectType === 'cidr' && identity.ip !== 'unknown') {
+      if (ipMatchesCidr(identity.ip, r.subjectValue)) return r;
+    }
+  }
+  return null;
+}
+
+export function checkCooldown(
+  identity: ClientIdentity, cooldownMinutes: number
+): { allowed: boolean; waitSeconds?: number } {
+  const key = identity.deviceId || identity.ip;
+  const lastPost = cooldownCache.get(key);
+  if (!lastPost) return { allowed: true };
+
+  const elapsed = Date.now() - lastPost;
+  const cooldownMs = cooldownMinutes * 60_000;
+  if (elapsed < cooldownMs) {
+    return { allowed: false, waitSeconds: Math.ceil((cooldownMs - elapsed) / 1000) };
+  }
+  return { allowed: true };
+}`,
     },
   },
   {
@@ -542,41 +565,54 @@ const resolveAnimatedParams = (effect: Effect, frameIndex: number, totalFrames: 
     status: 'active',
     codeHighlight: {
       language: 'python',
-      filename: 'action_executor.py',
-      code: `def execute_action(self, action: QueuedAction) -> str:
-    self.action_queue.update_status(action.job_id, ActionStatus.IN_PROGRESS)
+      filename: 'autonomous_campaign_controller.py',
+      code: `class ControllerState(Enum):
+    INITIALIZING = "initializing"
+    IDLE = "idle"
+    ANALYZING = "analyzing"
+    EXECUTING = "executing"
+    PAUSED = "paused"
+    ERROR = "error"
+    EMERGENCY_STOP = "emergency_stop"
 
-    # 1. Validate identity readiness
-    if not self._validate_identity_ready(action):
-        self.action_queue.update_status(action.job_id, ActionStatus.FAILED,
-            error="Identity not ready")
-        return 'validation_failed'
+class ExecutionPolicy(Enum):
+    CONSERVATIVE = "conservative"   # Minimum risk, slow growth
+    BALANCED = "balanced"           # Moderate risk/reward
+    AGGRESSIVE = "aggressive"       # Higher risk, faster growth
+    STEALTH = "stealth"             # Maximum opsec, minimal footprint
 
-    # 2. Check rate limits
-    if not self._check_rate_limit(action):
-        self.action_queue.update_status(action.job_id, ActionStatus.RATE_LIMITED)
-        return 'rate_limited'
+def run(self):
+    """Main autonomous control loop"""
+    self.running = True
+    self.state = ControllerState.IDLE
 
-    # 3. Check circuit breaker
-    if self._is_circuit_open(action.identity_username, action.platform):
-        self.action_queue.update_status(action.job_id, ActionStatus.FAILED,
-            error="Circuit breaker open - too many recent failures")
-        return 'failed'
+    while self.running:
+        if self.paused:
+            self.state = ControllerState.PAUSED
+            continue
 
-    # 4. Get platform automation and execute
-    identity = self._get_identity(action.identity_username)
-    automation = self.platform_factory.get_automation(action.platform)
+        loop_start = datetime.now()
 
-    success, error_msg = self._dispatch_action(automation, identity, action)
+        self._perform_health_check()
+        self._process_pending_confirmations()
 
-    if success:
-        self.action_queue.update_status(action.job_id, ActionStatus.COMPLETED)
-        self._record_success(action.identity_username, action.platform)
-        return 'success'
-    else:
-        self.action_queue.update_status(action.job_id, ActionStatus.FAILED, error=error_msg)
-        self._record_failure(action.identity_username, action.platform)
-        return 'failed'`,
+        # Periodic analysis — AI evaluates campaign performance
+        if (loop_start - last_analysis).seconds >= self.config.analysis_interval:
+            self.state = ControllerState.ANALYZING
+            self._perform_analysis_cycle()
+            last_analysis = loop_start
+
+        # Execute AI-recommended actions across platforms
+        self.state = ControllerState.EXECUTING
+        self._execute_action_cycle()
+
+        # Continuous learning from engagement outcomes
+        if self.config.enable_learning:
+            self._update_learning()
+
+        self.state = ControllerState.IDLE
+        elapsed = (datetime.now() - loop_start).total_seconds()
+        time.sleep(max(1, self.config.min_action_interval - elapsed))`,
     },
   },
 ];
